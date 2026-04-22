@@ -42,7 +42,8 @@ model Contact {
   url_photo String?
 
   tenant_id                        String  
-  tenant Tenant @relation(fields: [tenant_id], references: [id])
+  tenant   Tenant @relation(fields: [tenant_id], references: [id])
+  messages Message[]
 }
 
 
