@@ -1,0 +1,74 @@
+name: microservice-auth-dev
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    ports:
+      - "3060:3060"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      # Postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    restart: unless-stopped
+    volumes:
+      - .:/app
+      - ./node_modules:/app/node_modules
+    depends_on:
+      - db
+    command: sh -c "npm run prisma:migrate && npm run dev"
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: node
+      POSTGRES_PASSWORD: randompassword
+      POSTGRES_DB: mydb
+    restart: unless-stopped
+    volumes:
+      - microservice-auth-dev-postgresql:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.4
+    ports:
+      - "8085:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+
+    command: ["start-dev"]
+    restart: unless-stopped
+
+  studio:
+    build:
+      context: .
+    working_dir: /app
+    command: "npm run prisma:studio"
+    ports:
+      - "5560:5555"
+    volumes:
+      - .:/app
+
+  kong:
+    image: kong:3.7
+    ports:
+      - 8000:8000
+      - 8001:8001
+
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yaml
+      KONG_PLUGINS: bundled,my-auth
+      KONG_LUA_PACKAGE_PATH: /kong/plugins/?.lua;/kong/plugins/?/?.lua;;
+
+    volumes:
+      - ./kong/declarative:/kong/declarative
+      - ./kong/plugins:/kong/plugins
+
+volumes:
+  microservice-auth-dev-postgresql:

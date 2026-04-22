@@ -1,0 +1,16 @@
+{
+  "vue3snippets.enable-compile-vue-file-on-did-save-code": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "prettier.singleQuote": false,
+  "prettier.semi": true
+}

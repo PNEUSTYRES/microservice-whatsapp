@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model Tenant {
+  id            String       @id @unique
+  name          String
+  created_at    DateTime @default(now())
+
+  MessageContext  MessageContext[]
+  MessageDocument  MessageDocument[]
+  MessageAudio  MessageAudio[]
+  MessageVideo  MessageVideo[]
+  MessageImage  MessageImage[]
+  MessageText  MessageText[]
+  Message  Message[]
+
+  Contact  Contact[]
+}
+
+enum MessageType {
+  text
+  image
+  video
+  audio
+  voice
+  document
+  reply
+  system
+}
+
+model Contact {
+  id    String @id @default(uuid())
+  phone String @unique
+  name  String
+  url_photo String?
+
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+
+model Message {
+  id         String     @id @default(uuid())
+  contact_id String
+  type       MessageType
+
+  from       String
+  from_name  String
+  from_me    Boolean  @default(false)
+  source     String
+  forwarded  Boolean  @default(false)
+  is_read    Boolean  @default(false)
+  timestamp  DateTime
+  created_at DateTime @default(now())
+
+  // relações 1:1
+  text     MessageText?
+  image    MessageImage?
+  video    MessageVideo?
+  audio    MessageAudio?
+  document MessageDocument?
+  context  MessageContext?
+
+  contact Contact @relation(fields: [contact_id], references: [id])
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model MessageText {
+  id         String @id @default(uuid())
+  message_id String @unique
+  body       String
+
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model MessageImage {
+  id         String @id @default(uuid())
+  message_id String @unique
+
+  mime_type String
+  file_size Int
+  sha256    String
+
+  link    String
+  width   Int?
+  height  Int?
+  caption String?
+
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model MessageVideo {
+  id         String @id @default(uuid())
+  message_id String @unique
+
+  mime_type String
+  file_size Int
+  sha256    String
+
+  width   Int?
+  height  Int?
+  seconds Int?
+  caption String?
+  link    String
+
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model MessageAudio {
+  id         String @id @default(uuid())
+  message_id String @unique
+
+  mime_type String
+  file_size Int
+  sha256    String
+
+  seconds Int?
+  link    String
+
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model MessageDocument {
+  id         String @id @default(uuid())
+  message_id String @unique
+
+  mime_type String
+  file_size Int
+  sha256    String
+
+  filename String
+  link     String
+
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model MessageContext {
+  id         String @id @default(uuid())
+  message_id String @unique
+
+  quoted_id     String
+  quoted_author String
+  quoted_type   String
+
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  tenant_id                        String  
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
