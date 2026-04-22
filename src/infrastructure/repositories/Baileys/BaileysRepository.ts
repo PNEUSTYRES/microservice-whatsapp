@@ -18,61 +18,53 @@ export class BaileysRepository {
       qr,
     };
   }
+  private async getReadySocket(sessionId: string): Promise<WASocket> {
+    let sock = this.sessions.get(sessionId);
 
-  async sendTextMessage(sessionId: string, number: string, text: string) {
-    const sock = this.sessions.get(sessionId);
+    // cria se não existir
+    if (!sock) {
+      const result = await this.connector.connect(sessionId);
+      sock = result.sock;
 
-    if (!sock || !sock.user) {
-      throw new Error("Sessão não conectada");
+      this.sessions.set(sessionId, sock);
     }
-    const jid = `${number.replace(/\D/g, "")}@s.whatsapp.net`;
 
-    return sock.sendMessage(
-      jid,
-      { text },
-      {
-        quoted: {
-          key: {
-            remoteJid: "554399005171@s.whatsapp.net", // 👈 use o jid correto
-            id: "3A1043B636CD2B15C87E",
-            fromMe: true,
-          },
-          message: {
-            conversation: "Tetseme",
-          },
-        },
-      },
-    );
+    // espera conectar
+    if (!sock.user) {
+      await this.waitForConnection(sock);
+    }
+
+    return sock;
   }
 
-  async getContactProfilePicture(sessionId: string, number: string) {
-    const sock = this.sessions.get(sessionId);
+  private waitForConnection(sock: WASocket) {
+    return new Promise<void>((resolve, reject) => {
+      if (sock.user) return resolve();
 
-    if (!sock || !sock.user) {
-      throw new Error("Sessão não conectada");
-    }
+      const timeout = setTimeout(() => {
+        reject(new Error("Timeout ao conectar sessão"));
+      }, 20000);
+
+      sock.ev.on("connection.update", (update) => {
+        if (update.connection === "open") {
+          clearTimeout(timeout);
+          resolve();
+        }
+
+        if (update.connection === "close") {
+          clearTimeout(timeout);
+          reject(new Error("Conexão fechada antes de conectar"));
+        }
+      });
+    });
+  }
+
+  async sendTextMessage(sessionId: string, number: string, text: string) {
+    const sock = await this.getReadySocket(sessionId);
 
     const jid = `${number.replace(/\D/g, "")}@s.whatsapp.net`;
 
-    let photo: string | null = null;
-    let name: string | null = null;
-
-    // foto
-    try {
-      photo = await sock.profilePictureUrl(jid, "image");
-    } catch {
-      photo = null;
-    }
-
-    const contact = sock.contacts?.[jid];
-
-    name = contact?.name || contact?.notify || contact?.verifiedName || null;
-
-    return {
-      jid,
-      name,
-      photo,
-    };
+    return sock.sendMessage(jid, { text });
   }
 
   setSession(sessionId: string, sock: WASocket) {
