@@ -9,11 +9,7 @@ export class WebhookDispatcher {
 
       await ofetch(this.url, {
         method: "POST",
-        body: {
-          event,
-          data,
-          timestamp: new Date().toISOString(),
-        },
+        body: data,
       });
     } catch (err) {
       console.error("Erro ao enviar webhook:", err);
