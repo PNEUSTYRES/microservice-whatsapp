@@ -8,28 +8,22 @@ export class BaileysRepository {
     private sessions: SessionManager,
   ) {}
 
-  async createSession(sessionId: string) {
-    const { sock, qr } = await this.connector.connect(sessionId);
-
+  async createSession(sessionId: string, tenantId: string) {
+    const { sock } = await this.connector.connect(sessionId, tenantId);
     this.sessions.set(sessionId, sock);
 
-    return {
-      sessionId,
-      qr,
-    };
+    return { sessionId };
   }
+
   private async getReadySocket(sessionId: string): Promise<WASocket> {
     let sock = this.sessions.get(sessionId);
 
-    // cria se não existir
     if (!sock) {
-      const result = await this.connector.connect(sessionId);
+      const result = await this.connector.connect(sessionId, "");
       sock = result.sock;
-
       this.sessions.set(sessionId, sock);
     }
 
-    // espera conectar
     if (!sock.user) {
       await this.waitForConnection(sock);
     }
@@ -65,9 +59,5 @@ export class BaileysRepository {
     const jid = `${number.replace(/\D/g, "")}@s.whatsapp.net`;
 
     return sock.sendMessage(jid, { text });
-  }
-
-  setSession(sessionId: string, sock: WASocket) {
-    this.sessions.set(sessionId, sock);
   }
 }

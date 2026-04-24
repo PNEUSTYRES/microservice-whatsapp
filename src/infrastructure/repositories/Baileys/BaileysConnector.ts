@@ -1,46 +1,38 @@
 import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
-  DisconnectReason,
   WASocket,
 } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import pino from "pino";
-import { Boom } from "@hapi/boom";
-import { WebhookDispatcher } from "../WebhookDispatcher";
 import { SessionManager } from "../SessionManager";
+import { SessionEvents } from "@/domain/events/SessionEvents";
+import { EventBus } from "@/infrastructure/events/EventBus";
+import { BaileysToWhatpyMapper } from "./mapBaileysToWebhook";
+import { DomainError } from "@/domain/utils/DomainError";
+import fs from "fs";
+import path from "path";
 
 export class BaileysConnector {
-  private reconnectAttempts: Map<string, number> = new Map();
-
   constructor(
-    private webhookDispatcher: WebhookDispatcher,
     private sockets: SessionManager,
+    private events: EventBus<SessionEvents>,
   ) {}
 
-  async connect(sessionId: string) {
-    if (this.sockets.has(sessionId)) {
-      return this.buildReturn(sessionId);
-    }
-
+  async connect(sessionId: string, tenantId: string) {
     const { sock, saveCreds } = await this.createSocket(sessionId);
+
+    this.handleConnection(sock, sessionId, tenantId);
+    this.bindMessages(sock, sessionId, tenantId, saveCreds);
 
     this.sockets.set(sessionId, sock);
 
-    this.bindCoreEvents(sessionId, sock, saveCreds);
-
-    const { qr, isConnected } = await this.handleConnection(sessionId, sock);
-
-    return {
-      sock,
-      qr,
-      isConnected,
-    };
+    return { sock };
   }
 
   private async createSocket(sessionId: string) {
     const { state, saveCreds } = await useMultiFileAuthState(
-      `./session/auth_${sessionId}`,
+      `./session/${sessionId}`,
     );
 
     const { version } = await fetchLatestBaileysVersion();
@@ -55,98 +47,121 @@ export class BaileysConnector {
     return { sock, saveCreds };
   }
 
-  private bindCoreEvents(
-    sessionId: string,
+  private handleConnection(
     sock: WASocket,
-    saveCreds: () => void,
+    sessionId: string,
+    tenantId: string,
   ) {
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, qr, lastDisconnect } = update;
 
-    sock.ev.process(async (events) => {
-      for (const [event, data] of Object.entries(events)) {
-        console.log(`[${sessionId}] Evento:`, event);
+      // QR GERADO
+      if (qr) {
+        const qrBase64 = await QRCode.toDataURL(qr);
 
-        await this.webhookDispatcher.dispatch(event, data);
+        await this.events.emit("session.qr.generated", {
+          sessionId,
+          tenantId,
+          qr: qrBase64,
+        });
+      }
+
+      // CONECTADO
+      if (connection === "open") {
+        console.log("✅ conectado");
+        await this.events.emit("session.connected", {
+          sessionId,
+          tenantId,
+        });
+      }
+
+      // DESCONECTADO
+      if (connection === "close") {
+        console.log("❌ fechado");
+
+        const statusCode = (
+          lastDisconnect?.error as { output?: { statusCode: number } }
+        )?.output?.statusCode;
+
+        console.log("status:", statusCode);
+
+        // ❌ NÃO mata direto
+        if (statusCode === 401) {
+          console.log("⚠️ possível sessão inválida (não vou apagar ainda)");
+          // this.logout(sessionId);
+          return;
+        }
+
+        console.log("🔄 reconectando...");
+        this.connect(sessionId, tenantId);
       }
     });
   }
 
-  private async handleConnection(sessionId: string, sock: WASocket) {
-    let isConnected = false;
-    let resolved = false;
+  private bindMessages(
+    sock: WASocket,
+    sessionId: string,
+    tenantId: string,
+    saveCreds: () => void,
+  ) {
+    // salvar credenciais
+    sock.ev.on("creds.update", saveCreds);
 
-    const qr = await new Promise<string | null>((resolve) => {
-      sock.ev.on("connection.update", async (update) => {
-        const { connection, qr, lastDisconnect } = update;
-
-        // QR
-        if (qr && !resolved) {
-          resolved = true;
-          const qrBase64 = await QRCode.toDataURL(qr);
-          return resolve(qrBase64);
-        }
-
-        // conectado
-        if (connection === "open") {
-          console.log(`[${sessionId}] ✅ Conectado`);
-
-          isConnected = true;
-          this.reconnectAttempts.set(sessionId, 0);
-
-          if (!resolved) {
-            resolved = true;
-            resolve(null);
-          }
-        }
-
-        // desconectado
-        if (connection === "close") {
-          isConnected = false;
-
-          const error = lastDisconnect?.error as Boom | undefined;
-          const statusCode = error?.output?.statusCode;
-
-          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-          console.log(
-            `[${sessionId}] ❌ Fechado. Reconectar: ${shouldReconnect}`,
-          );
-
-          this.sockets.delete(sessionId);
-
-          if (shouldReconnect) {
-            this.scheduleReconnect(sessionId);
-          } else {
-            console.log(`[${sessionId}] ⚠️ Logout detectado`);
-          }
-        }
-      });
+    sock.ev.on("messages.update", (data) => {
+      console.log("messages.update", JSON.stringify(data, null, 2));
     });
 
-    return {
-      qr,
-      isConnected: () => isConnected,
-    };
+    sock.ev.on("messages.upsert", async (m) => {
+      console.log("📩 mensagem recebida");
+
+      if (m.type !== "notify") return;
+
+      const mapped = BaileysToWhatpyMapper.map(m.messages);
+
+      await this.events.emit("message.received", {
+        sessionId,
+        tenantId,
+        data: mapped,
+      });
+    });
   }
 
-  private scheduleReconnect(sessionId: string) {
-    const attempts = (this.reconnectAttempts.get(sessionId) || 0) + 1;
+  async logout(sessionId: string) {
+    try {
+      const sock = this.sockets.get(sessionId);
 
-    this.reconnectAttempts.set(sessionId, attempts);
+      // 1. encerra conexão se existir
+      if (sock) {
+        try {
+          await sock.logout(); // invalida no WhatsApp
+        } catch (err) {
+          console.log("⚠️ erro no logout (ignorado):", err);
+        }
 
-    const delay = Math.min(1000 * 2 ** attempts, 30000);
+        try {
+          sock.ws.close(); // garante fechamento
+        } catch (err) {
+          console.log("⚠️ erro ao fechar ws:", err);
+        }
+      }
 
-    setTimeout(() => {
-      this.connect(sessionId);
-    }, delay);
-  }
+      // 2. remove da memória
+      this.sockets.delete(sessionId);
 
-  private buildReturn(sessionId: string) {
-    return {
-      sock: this.sockets.get(sessionId)!,
-      qr: null,
-      isConnected: () => this.isConnected(sessionId),
-    };
+      // 3. remove arquivos da sessão
+      const sessionPath = path.resolve(`./session/${sessionId}`);
+
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        console.log("🧹 sessão removida do disco:", sessionId);
+      }
+
+      console.log("logout concluído:", sessionId);
+    } catch (error) {
+      console.error("❌ erro ao fazer logout:", error);
+
+      throw new DomainError("Erro ao fazer logout");
+    }
   }
 
   isConnected(sessionId: string) {
@@ -155,5 +170,12 @@ export class BaileysConnector {
 
   getSocket(sessionId: string) {
     return this.sockets.get(sessionId);
+  }
+  async regenerateQr(sessionId: string, tenantId: string) {
+    //  logout
+    await this.logout(sessionId);
+
+    // 2. reconecta
+    return this.connect(sessionId, tenantId);
   }
 }

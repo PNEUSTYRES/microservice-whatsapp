@@ -21,14 +21,15 @@ describe("BaileysRepository (integration)", () => {
   //     }
   //   });
   it("deve enviar uma mensagem", async () => {
+    const sessions = new SessionManager();
     const connector = new BaileysConnector(
       new WebhookDispatcher("https://google.com"),
+      sessions,
     );
-    const sessions = new SessionManager();
     const repository = new BaileysRepository(connector, sessions);
 
-    const { sock } = await connector.connect("teste_qr");
-    // console.log(qr);
+    const { sock, qr } = await connector.connect("teste_qr");
+    console.log(qr);
     // await connector.waitUntilConnected('sessions')
     // aguarda conectar de verdade
     await new Promise((resolve) => {
@@ -37,7 +38,7 @@ describe("BaileysRepository (integration)", () => {
           clearInterval(interval);
           resolve(true);
         }
-      }, 1000);
+      }, 3000);
     });
 
     await repository.createSession("teste_qr");
@@ -48,8 +49,9 @@ describe("BaileysRepository (integration)", () => {
     //   "Teste automático  🚀",
     // );
 
-    console.log(
-      await repository.getContactProfilePicture("teste_qr", "554396538929"),
-    );
+    console
+      .log
+      // await repository.getContactProfilePicture("teste_qr", "554396538929"),
+      ();
   }, 30000);
 });

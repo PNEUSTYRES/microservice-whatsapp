@@ -1,26 +1,13 @@
 import { IWhatsappAdapter } from "@/domain/repositories/IWhatsappAdapter";
 import { BaileysRepository } from "./Baileys/BaileysRepository";
-import { BaileysConnector } from "./Baileys/BaileysConnector";
-import { SessionManager } from "./SessionManager";
+
+import { Session } from "@/domain/entities/Session";
 
 export class RunAdapter implements IWhatsappAdapter {
-  constructor(
-    private connector: BaileysConnector,
-    private sessions: SessionManager,
-    private repository: BaileysRepository,
-  ) {}
+  constructor(private repository: BaileysRepository) {}
 
-  async createSession() {
-    const sessionId = crypto.randomUUID();
-
-    const { sock, qr } = await this.connector.connect(sessionId);
-
-    this.sessions.set(sessionId, sock);
-
-    return {
-      sessionId,
-      qr: qr ?? "",
-    };
+  async createSession(session: Session) {
+    await this.repository.createSession(session.id, session.tenant_id);
   }
 
   async sendText(sessionId: string, number: string, text: string) {
