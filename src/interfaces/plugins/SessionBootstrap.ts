@@ -1,8 +1,13 @@
+import { ISessionRepository } from "@/domain/repositories/ISessionRepository";
 import { BaileysConnector } from "@/infrastructure/repositories/Baileys/BaileysConnector";
 import fs from "fs";
 import path from "path";
+
 export class SessionBootstrap {
-  constructor(private connector: BaileysConnector) {}
+  constructor(
+    private connector: BaileysConnector,
+    private sessionRepository: ISessionRepository,
+  ) {}
 
   async init() {
     const sessionDir = path.resolve("./session");
@@ -14,15 +19,18 @@ export class SessionBootstrap {
 
     const folders = fs.readdirSync(sessionDir);
 
-    const sessionIds = folders
-      .filter((name) => name.startsWith("auth_"))
-      .map((name) => name.replace("auth_", ""));
+    const sessionIds = folders; // fazer prexifo
 
     console.log("Sessões encontradas:", sessionIds);
 
     for (const sessionId of sessionIds) {
       console.log(`🔄 Subindo sessão ${sessionId}`);
-      this.connector.connect(sessionId);
+
+      const session = await this.sessionRepository.findById(sessionId);
+
+      if (!session) continue;
+
+      await this.connector.connect(session.id, session.tenant_id);
     }
   }
 }

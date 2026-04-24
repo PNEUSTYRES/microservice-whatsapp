@@ -1,32 +1,33 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import HandlerRequest from "@/interfaces/plugins/HandlerRequest";
-import { SessionManager } from "@/infrastructure/repositories/SessionManager";
-import { WebhookDispatcher } from "@/infrastructure/repositories/WebhookDispatcher";
-import { BaileysConnector } from "@/infrastructure/repositories/Baileys/BaileysConnector";
+import { SessionRoutes } from "@/interfaces/routes/SessionRoutes";
 import { SessionBootstrap } from "@/interfaces/plugins/SessionBootstrap";
+import { SessionRepositoryPrisma } from "@/infrastructure/repositories/SessionRepositoryPrisma";
+import { baileysConnector } from "container";
 
 const fastify = Fastify({ logger: true });
 
 fastify.register(cors, {
   origin: "*",
 });
+
 await fastify.register(HandlerRequest);
 
-// fastify.register(JWTRoutes, { prefix: "/" });
-
+fastify.register(SessionRoutes, { prefix: "/" });
 fastify.get("/status", async () => {
   return { status: true };
 });
 
 async function start() {
-  const sessions = new SessionManager();
-  const webhook = new WebhookDispatcher();
-  const connector = new BaileysConnector(webhook, sessions);
+  const repositorySession = new SessionRepositoryPrisma();
 
-  const bootstrap = new SessionBootstrap(connector);
-  await bootstrap.init();
+  const sessionBootstrap = new SessionBootstrap(
+    baileysConnector,
+    repositorySession,
+  );
 
+  await sessionBootstrap.init();
   await fastify.listen({ port: 3060, host: "0.0.0.0" });
 
   console.log("🚀 Server rodando + sessões inicializadas");
