@@ -8,7 +8,7 @@ import pino from "pino";
 import { SessionManager } from "../SessionManager";
 import { SessionEvents } from "@/domain/events/SessionEvents";
 import { EventBus } from "@/infrastructure/events/EventBus";
-import { BaileysToWhatpyMapper } from "./mapBaileysToWebhook";
+import { BaileysToWhatpyMapper } from "./BaileysToWhatpyMapper";
 import { DomainError } from "@/domain/utils/DomainError";
 import fs from "fs";
 import path from "path";

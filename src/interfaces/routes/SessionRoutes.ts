@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { SessionAdapters } from "../adapters/SessionAdapters";
 import { SessionController } from "../controllers/SessionController";
 import { SessionRepositoryPrisma } from "@/infrastructure/repositories/SessionRepositoryPrisma";
-import { RunAdapterBaileys } from "@/infrastructure/repositories/RunAdapterBaileys";
+import { RunAdapterBaileys } from "@/infrastructure/repositories/Baileys/RunAdapterBaileys";
 import { baileysConnector, sessionManager } from "container";
 import { BaileysRepository } from "@/infrastructure/repositories/Baileys/BaileysRepository";
 

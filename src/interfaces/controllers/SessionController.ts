@@ -3,7 +3,7 @@ import { ISession } from "../interface/ISession";
 import { Session, SessionDTO } from "@/domain/entities/Session";
 import { v4 as uuidv4 } from "uuid";
 import { DomainError } from "@/domain/utils/DomainError";
-import { RunAdapterBaileys } from "@/infrastructure/repositories/RunAdapterBaileys";
+import { RunAdapterBaileys } from "@/infrastructure/repositories/Baileys/RunAdapterBaileys";
 
 export class SessionController implements ISession {
   constructor(

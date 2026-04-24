@@ -101,9 +101,19 @@ export interface WhatsAppMessageDocument {
 export interface WhatsAppMessage {
   id: string;
   from_me: boolean;
-  type: "text" | "image" | "voice" | "document" | "video" | "audio" | "reply";
+  type:
+    | "text"
+    | "image"
+    | "voice"
+    | "document"
+    | "video"
+    | "audio"
+    | "reply"
+    | "sticker";
   chat_id: string;
   timestamp: number;
+  status: string;
+  starred: boolean;
   source: string; // ex: "mobile", "web"
   text?: WhatsAppMessageText;
   image?: WhatsAppMessageImage;
@@ -112,9 +122,22 @@ export interface WhatsAppMessage {
   voice?: WhatsAppMessageVoice;
   reply?: WhatsAppMessageReply;
   audio?: WhatsAppMessageAudio;
+  sticker?: WhatsAppMessageAudio;
   context?: WhatsAppMessageContext;
   from: string;
   from_name: string;
+}
+
+export interface WhatsAppMessageSticker {
+  id: string;
+  mime_type: string;
+  file_size: number;
+  sha256: string;
+  link?: string;
+  is_animated?: boolean;
+  is_ai_sticker?: boolean;
+  is_lottie?: boolean;
+  preview?: string;
 }
 export interface WhatsAppMessageSticker {
   id: string;
