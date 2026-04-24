@@ -22,6 +22,7 @@ model Tenant {
   Message  Message[]
 
   Contact  Contact[]
+  Session  Session[]
 }
 
 enum MessageType {
@@ -164,4 +165,18 @@ model MessageContext {
   message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
   tenant_id                        String  
   tenant Tenant @relation(fields: [tenant_id], references: [id])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  name        String
+  descricao   String?
+  qrcode      String?
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // MULTI TENANT
+  tenant_id   String
+  tenant      Tenant   @relation(fields: [tenant_id], references: [id])
 }
