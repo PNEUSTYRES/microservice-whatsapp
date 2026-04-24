@@ -3,7 +3,7 @@ import { BaileysRepository } from "./Baileys/BaileysRepository";
 
 import { Session } from "@/domain/entities/Session";
 
-export class RunAdapter implements IWhatsappAdapter {
+export class RunAdapterBaileys implements IWhatsappAdapter {
   constructor(private repository: BaileysRepository) {}
 
   async createSession(session: Session) {

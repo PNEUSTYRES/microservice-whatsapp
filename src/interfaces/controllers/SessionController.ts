@@ -3,12 +3,12 @@ import { ISession } from "../interface/ISession";
 import { Session, SessionDTO } from "@/domain/entities/Session";
 import { v4 as uuidv4 } from "uuid";
 import { DomainError } from "@/domain/utils/DomainError";
-import { RunAdapter } from "@/infrastructure/repositories/RunAdapter";
+import { RunAdapterBaileys } from "@/infrastructure/repositories/RunAdapterBaileys";
 
 export class SessionController implements ISession {
   constructor(
     private sessionRepository: ISessionRepository,
-    private runAdapter: RunAdapter,
+    private runAdapter: RunAdapterBaileys,
   ) {}
 
   async create(data: {

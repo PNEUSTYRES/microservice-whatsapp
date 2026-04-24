@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { SessionAdapters } from "../adapters/SessionAdapters";
 import { SessionController } from "../controllers/SessionController";
 import { SessionRepositoryPrisma } from "@/infrastructure/repositories/SessionRepositoryPrisma";
-import { RunAdapter } from "@/infrastructure/repositories/RunAdapter";
+import { RunAdapterBaileys } from "@/infrastructure/repositories/RunAdapterBaileys";
 import { baileysConnector, sessionManager } from "container";
 import { BaileysRepository } from "@/infrastructure/repositories/Baileys/BaileysRepository";
 
@@ -13,7 +13,7 @@ const baileysRepository = new BaileysRepository(
   sessionManager,
 );
 
-const runAdapter = new RunAdapter(baileysRepository);
+const runAdapter = new RunAdapterBaileys(baileysRepository);
 const controller = new SessionController(repositorySession, runAdapter);
 const adapters = new SessionAdapters(controller);
 
